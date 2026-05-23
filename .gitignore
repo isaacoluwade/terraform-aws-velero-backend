@@ -1,0 +1,30 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.tfstate.lock.info
+
+# Local-only tfvars (anything that may contain secrets)
+*.tfvars
+*.tfvars.json
+!examples/**/*.tfvars
+
+# Go (terratest)
+/terratest/test/vendor/
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+# Internal review artifacts (pre-cert findings)
+REVIEW.md

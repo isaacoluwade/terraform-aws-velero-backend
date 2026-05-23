@@ -1,0 +1,19 @@
+framework:
+  - terraform
+
+skip-check:
+  # CKV_AWS_144: S3 bucket cross-region replication.
+  # Enabled conditionally via dr_region; the static check fires on the default-off path.
+  - CKV_AWS_144
+  # CKV_AWS_18: S3 bucket access logging.
+  # Velero backups are write-heavy; logging belongs in a separate observability bucket
+  # owned by a logging module, not this module.
+  - CKV_AWS_18
+  # CKV2_AWS_61: lifecycle rule on bucket.
+  # We do configure one for the Velero bucket; checkov's static walker misses the rule.
+  - CKV2_AWS_61
+  # CKV2_AWS_62: event notifications.
+  # Out of scope for the backup-target module.
+  - CKV2_AWS_62
+
+soft-fail: false
