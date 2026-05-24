@@ -62,20 +62,49 @@ data "aws_iam_policy_document" "velero" {
     ])
   }
 
+  # V-C3 fix: split into two statements.
+  #
+  # ec2:Describe* and ec2:CreateVolume only accept `Resource: "*"` — the EC2
+  # API rejects the call entirely if resources are scoped to ARNs, which
+  # caused Velero's DescribeVolumes to return AccessDenied and silently
+  # enumerate zero volumes (backups appeared "successful" but were empty).
+  #
+  # Snapshot creation/deletion can be scoped via the ec2:SourceVolume
+  # condition when the consumer supplies allowed_ebs_volume_arns.
   statement {
-    sid    = "VeleroEBSSnapshot"
+    sid    = "VeleroEBSDescribe"
     effect = "Allow"
 
     actions = [
       "ec2:DescribeVolumes",
       "ec2:DescribeSnapshots",
-      "ec2:CreateTags",
       "ec2:CreateVolume",
+      "ec2:CreateTags",
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "VeleroEBSSnapshot"
+    effect = "Allow"
+
+    actions = [
       "ec2:CreateSnapshot",
       "ec2:DeleteSnapshot",
     ]
 
     resources = length(var.allowed_ebs_volume_arns) > 0 ? var.allowed_ebs_volume_arns : ["*"]
+
+    dynamic "condition" {
+      for_each = length(var.allowed_ebs_volume_arns) > 0 ? toset(["scope"]) : toset([])
+
+      content {
+        test     = "ArnEquals"
+        variable = "ec2:SourceVolume"
+        values   = var.allowed_ebs_volume_arns
+      }
+    }
   }
 
   statement {

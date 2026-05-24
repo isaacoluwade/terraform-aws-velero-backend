@@ -66,12 +66,29 @@ variable "oidc_provider_url" {
 
 variable "kms_key_arn" {
   type        = string
-  description = "Consumer-supplied KMS key ARN used to encrypt the Velero backup bucket. When null, the module provisions a customer-managed key (multi-region when dr_region is set) and outputs its ARN via kms_key_arn."
+  description = "Consumer-supplied KMS key ARN in the PRIMARY region, used to encrypt the Velero backup bucket. When null, the module provisions a customer-managed key (multi-region when dr_region is set) and outputs its ARN via kms_key_arn. When supplied and dr_region is set, dr_kms_key_arn must also be supplied (a KMS key in the DR region) or replicated objects will fail with KMS.NotFoundException."
   default     = null
 
   validation {
     condition     = var.kms_key_arn == null || can(regex("^arn:aws[a-z-]*:kms:", var.kms_key_arn))
     error_message = "kms_key_arn must be null or a valid KMS key ARN."
+  }
+}
+
+variable "dr_kms_key_arn" {
+  type        = string
+  description = "Consumer-supplied KMS key ARN in the DR REGION. Required when both kms_key_arn and dr_region are set — the replica bucket's SSE config and replication configuration encrypt with this key. When the module owns the KMS key (kms_key_arn = null), the module creates a multi-region replica and dr_kms_key_arn is ignored."
+  default     = null
+
+  validation {
+    condition     = var.dr_kms_key_arn == null || can(regex("^arn:aws[a-z-]*:kms:", var.dr_kms_key_arn))
+    error_message = "dr_kms_key_arn must be null or a valid KMS key ARN."
+  }
+
+  validation {
+    # S-3 fix: enforce DR-with-consumer-KMS pairing at plan time.
+    condition     = var.kms_key_arn == null || var.dr_region == null || var.dr_kms_key_arn != null
+    error_message = "dr_kms_key_arn is required when both kms_key_arn and dr_region are set (the replica bucket needs a DR-region KMS key)."
   }
 }
 

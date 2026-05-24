@@ -15,7 +15,7 @@ run "bucket_name_follows_primary_name" {
   command = plan
 
   assert {
-    condition     = aws_s3_bucket.velero.bucket == "test-test-useast1-velero"
+    condition     = aws_s3_bucket.velero.bucket == "test-test-use1-velero"
     error_message = "bucket name should be $${project}-$${environment}-$${region_code}-velero"
   }
 }
@@ -24,7 +24,7 @@ run "iam_role_name_follows_primary_name" {
   command = plan
 
   assert {
-    condition     = aws_iam_role.velero.name == "test-test-useast1-velero"
+    condition     = aws_iam_role.velero.name == "test-test-use1-velero"
     error_message = "IAM role name should be $${primary_name}-velero"
   }
 }
@@ -33,7 +33,7 @@ run "kms_alias_follows_primary_name" {
   command = plan
 
   assert {
-    condition     = aws_kms_alias.velero[0].name == "alias/test-test-useast1-velero"
+    condition     = aws_kms_alias.velero[0].name == "alias/test-test-use1-velero"
     error_message = "KMS alias should be alias/$${primary_name}-velero"
   }
 }
@@ -105,8 +105,8 @@ run "region_compression_eu_west_2" {
   }
 
   assert {
-    condition     = aws_s3_bucket.velero.bucket == "test-test-euwest2-velero"
-    error_message = "region compression should produce 'euwest2' from 'eu-west-2'"
+    condition     = aws_s3_bucket.velero.bucket == "test-test-euw2-velero"
+    error_message = "region compression should produce 'euw2' from 'eu-west-2'"
   }
 }
 
@@ -118,7 +118,7 @@ run "dr_replica_bucket_name_follows_primary_name" {
   }
 
   assert {
-    condition     = aws_s3_bucket.velero_replica[0].bucket == "test-test-useast1-velero-replica"
+    condition     = aws_s3_bucket.velero_replica[0].bucket == "test-test-use1-velero-replica"
     error_message = "DR replica bucket name should be $${primary_name}-velero-replica"
   }
 }

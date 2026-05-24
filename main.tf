@@ -1,9 +1,32 @@
 locals {
-  region_code = format(
-    "%s%s",
-    substr(replace(var.region, "-", ""), 0, length(replace(var.region, "-", "")) - 1),
-    substr(var.region, length(var.region) - 1, 1),
-  )
+  # S-1 fix: explicit region→short-code map (no derivation tricks).
+  # Adding a new region = adding a line here.
+  region_code_map = {
+    "us-east-1"      = "use1"
+    "us-east-2"      = "use2"
+    "us-west-1"      = "usw1"
+    "us-west-2"      = "usw2"
+    "eu-west-1"      = "euw1"
+    "eu-west-2"      = "euw2"
+    "eu-west-3"      = "euw3"
+    "eu-central-1"   = "euc1"
+    "eu-north-1"     = "eun1"
+    "eu-south-1"     = "eus1"
+    "ap-southeast-1" = "apse1"
+    "ap-southeast-2" = "apse2"
+    "ap-northeast-1" = "apne1"
+    "ap-northeast-2" = "apne2"
+    "ap-northeast-3" = "apne3"
+    "ap-south-1"     = "aps1"
+    "ap-east-1"      = "ape1"
+    "ca-central-1"   = "cac1"
+    "ca-west-1"      = "caw1"
+    "sa-east-1"      = "sae1"
+    "me-south-1"     = "mes1"
+    "me-central-1"   = "mec1"
+    "af-south-1"     = "afs1"
+  }
+  region_code = local.region_code_map[var.region]
 
   primary_name = "${var.project}-${var.environment}-${local.region_code}"
 
@@ -26,9 +49,15 @@ locals {
   # Whether the module owns the KMS key (and may create a multi-region replica).
   create_kms_key    = var.kms_key_arn == null
   effective_kms_arn = local.create_kms_key ? aws_kms_key.velero[0].arn : var.kms_key_arn
+
+  # S-3 fix: the replica's SSE + replication config needs a KMS key in dr_region.
+  # - When the module owns the key, it creates a multi-region replica → use it.
+  # - When the consumer supplies the primary key, the consumer also supplies
+  #   dr_kms_key_arn (a KMS key that exists in dr_region). The variable
+  #   validation block enforces the pairing at plan time.
   effective_replica_kms_arn = (
-    local.replication_enabled && local.create_kms_key
-    ? aws_kms_replica_key.velero[0].arn
+    local.replication_enabled
+    ? (local.create_kms_key ? aws_kms_replica_key.velero[0].arn : var.dr_kms_key_arn)
     : null
   )
 }
@@ -186,12 +215,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "velero_replica" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "aws:kms"
-      kms_master_key_id = (
-        local.create_kms_key
-        ? aws_kms_replica_key.velero[0].arn
-        : var.kms_key_arn
-      )
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = local.effective_replica_kms_arn # S-3 fix: DR-region key, not primary
     }
     bucket_key_enabled = true
   }
@@ -247,11 +272,7 @@ resource "aws_s3_bucket_replication_configuration" "velero" {
       storage_class = "STANDARD"
 
       encryption_configuration {
-        replica_kms_key_id = (
-          local.create_kms_key
-          ? aws_kms_replica_key.velero[0].arn
-          : var.kms_key_arn
-        )
+        replica_kms_key_id = local.effective_replica_kms_arn # S-3 fix: DR-region key, not primary
       }
     }
 

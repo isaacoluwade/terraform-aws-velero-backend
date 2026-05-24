@@ -5,47 +5,6 @@ on:
     tags:
       - "v*.*.*"
 
-permissions:
-  contents: write
-
 jobs:
   release:
-    name: Cut release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Verify VERSION matches tag
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          FILE_VERSION="$(cat VERSION | tr -d '[:space:]')"
-          if [ "$TAG_VERSION" != "$FILE_VERSION" ]; then
-            echo "Tag $TAG_VERSION does not match VERSION file $FILE_VERSION"
-            exit 1
-          fi
-
-      - name: Verify CHANGELOG has an entry
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          if ! grep -q "^## \[$TAG_VERSION\]" CHANGELOG.md; then
-            echo "CHANGELOG.md does not have an entry for version $TAG_VERSION"
-            exit 1
-          fi
-
-      - name: Extract release notes
-        id: notes
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          awk "/^## \[$TAG_VERSION\]/{flag=1;next}/^## \[/{flag=0}flag" CHANGELOG.md > release-notes.md
-          echo "Release notes:"
-          cat release-notes.md
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ github.ref_name }}
-          body_path: release-notes.md
-          draft: false
-          prerelease: false
+    uses: isaacoluwade/mtkp-platform-actions/.github/workflows/terraform-module-release.yml@main

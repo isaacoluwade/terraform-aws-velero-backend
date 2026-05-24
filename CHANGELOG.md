@@ -4,6 +4,48 @@ All notable changes to this module are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/), versioning follows
 [SemVer](https://semver.org/).
 
+## [2.0.0] - 2026-05-24
+
+### Breaking changes
+
+- **Region short-code derivation rewritten** (S-1 fix). The `region_code`
+  local previously derived its value from a substring formula that produced
+  non-canonical codes (`us-east-1` → `useast1`, `eu-west-2` → `euwest2`,
+  `ap-southeast-1` → `apsoutheast1`). v2.0.0 replaces it with an explicit
+  `region_code_map` lookup, giving the canonical short codes
+  (`use1`, `euw2`, `apse1`, ...). **Every resource name and every `Name`
+  tag in this module shifts as a result.** Consumers upgrading from
+  v1.x will see destroy+recreate on first apply.
+
+  See [`UPGRADE_GUIDE.md`](../UPGRADE_GUIDE.md) at the workspace root for
+  the recommended per-environment cutover sequence.
+- **`dr_kms_key_arn` input added** (S-3 fix). Required when both
+  `kms_key_arn` and `dr_region` are set. The replica bucket's SSE
+  config and `replica_kms_key_id` now reference the DR-region key
+  instead of falling back to the primary-region key (which AWS rejected
+  with `KMS.NotFoundException` on every PutObject — silently broken
+  replication).
+
+  Migration: callers passing a consumer-supplied `kms_key_arn` with
+  `dr_region` set must add `dr_kms_key_arn`. A cross-variable
+  validation enforces the pairing at plan time.
+
+- **EBS IAM statement split** (V-C3 fix). The single previous statement
+  scoped `ec2:DescribeVolumes`, `ec2:DescribeSnapshots`, and
+  `ec2:CreateVolume` to specific volume ARNs, which AWS rejects (those
+  actions require `Resource: "*"`). Velero's `DescribeVolumes` returned
+  AccessDenied and silently enumerated zero volumes. v2.0.0 splits it
+  into two statements:
+  - `VeleroEBSDescribe` (Describe + CreateVolume + CreateTags) at
+    `Resource: "*"`.
+  - `VeleroEBSSnapshot` (CreateSnapshot + DeleteSnapshot) optionally
+    scoped via `var.allowed_ebs_volume_arns` + an `ec2:SourceVolume`
+    ArnEquals condition.
+
+  Migration: no input change. Backups will now actually capture
+  volumes (consumers upgrading should re-run the next scheduled
+  backup and verify Velero's logs report a non-zero snapshot count).
+
 ## [1.0.0] - 2026-05-22
 
 ### Added

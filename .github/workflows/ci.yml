@@ -6,84 +6,11 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: read
-  id-token: write
-  pull-requests: write
-
-env:
-  TF_VERSION: "1.7.5"
-
 jobs:
-  static-and-unit:
-    name: Static + unit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - name: terraform fmt
-        run: terraform fmt -check -recursive
-
-      - name: Validate root module
-        run: |
-          terraform init -backend=false
-          terraform validate
-
-      - name: Validate examples
-        run: |
-          for dir in examples/*/; do
-            echo "Validating $dir"
-            (cd "$dir" && terraform init -backend=false && terraform validate)
-          done
-
-      - uses: terraform-linters/setup-tflint@v4
-        with:
-          tflint_version: latest
-
-      - name: tflint
-        run: |
-          tflint --init
-          tflint --recursive --config "$(pwd)/.tflint.hcl"
-
-      - name: checkov
-        uses: bridgecrewio/checkov-action@master
-        with:
-          directory: .
-          framework: terraform
-          config_file: .checkov.yaml
-
-      - name: terraform test
-        run: terraform test
-
-  terratest:
-    name: Terratest (real AWS)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: static-and-unit
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.22"
-          cache-dependency-path: terratest/test/go.sum
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: go test
-        working-directory: terratest/test
-        env:
-          TERRATEST_OIDC_PROVIDER_ARN: ${{ secrets.TERRATEST_OIDC_PROVIDER_ARN }}
-          TERRATEST_OIDC_PROVIDER_URL: ${{ secrets.TERRATEST_OIDC_PROVIDER_URL }}
-        run: go test -v -timeout 30m ./...
+  ci:
+    uses: isaacoluwade/mtkp-platform-actions/.github/workflows/terraform-module-ci.yml@main
+    with:
+      terratest_timeout_minutes: 15
+      aws_dr_region: us-west-2
+    secrets:
+      AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
