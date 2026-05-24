@@ -1,9 +1,21 @@
 name: Release
 
+# Release-on-merge-to-main. The reusable workflow reads VERSION, verifies the
+# matching CHANGELOG entry, creates the annotated tag, and publishes the
+# GitHub release with the changelog body. Idempotent: if VERSION is unchanged
+# from the last released tag, this is a no-op. workflow_dispatch is wired so
+# you can re-trigger manually if a previous run failed mid-flight.
+
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches: [main]
+    paths:
+      - "VERSION"
+      - "CHANGELOG.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   release:
